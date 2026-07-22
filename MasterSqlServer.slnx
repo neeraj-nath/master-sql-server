@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="MasterSqlServer.Database/MasterSqlServer.Database.sqlproj" Id="32d2bba0-a82f-4fea-9824-02019e2a7707">
+    <Build />
+    <Deploy />
+  </Project>
+</Solution>
