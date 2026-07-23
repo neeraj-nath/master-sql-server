@@ -59,4 +59,9 @@
     <Folder Include="Scripts" />
     <Folder Include="Scripts\Sessions" />
   </ItemGroup>
+  <ItemGroup>
+    <Build Include="Scripts\Sessions\Session_One.sql" />
+    <Build Include="Scripts\Sessions\Session_Three.sql" />
+    <Build Include="Scripts\Sessions\Session_Two.sql" />
+  </ItemGroup>
 </Project>
