@@ -41,3 +41,34 @@ insert into tblTransactionTemp
 values(100,'2024-06-10',123)
 
 Drop table tblTransactionTemp
+
+---- DEFAULT CONSTRAINT
+
+ALTER TABLE tblTransaction
+ADD CreatedDate DATETIME2
+
+ALTER TABLE tblTransaction
+ADD CONSTRAINT DF_Transaction_CreatedDate DEFAULT(SYSDATETIME()) FOR CreatedDate
+
+insert into tblTransaction
+(Amount, DateOfTransaction, EmployeeNumber)
+values(100,'2024-06-10',123) -- this will take the default SYSDATETIME since we are not providing any explicit value to insert
+
+select * from tblTransaction where EmployeeNumber = 1111
+
+insert into tblTransaction
+(Amount, DateOfTransaction, EmployeeNumber, CreatedDate)
+values(100,'2024-06-10',1111, null) -- this will also work -- since we are giving a value to insert explicitly
+
+-- lets drop the column
+ALTER TABLE tblTransaction
+DROP COLUMN CreatedDate; -- Error : The object 'DF_Transaction_CreatedDate' is dependent on column 'CreatedDate'.
+                              --    ALTER TABLE DROP COLUMN CreatedDate failed because one or more objects access this column.
+
+-- Need to first drop the constraint f we wish to drop the column
+ALTER TABLE tblTransaction
+DROP CONSTRAINT DF_Transaction_CreatedDate
+
+-- now the above drop column would work without any error
+ALTER TABLE tblTransaction
+DROP COLUMN CreatedDate; 
