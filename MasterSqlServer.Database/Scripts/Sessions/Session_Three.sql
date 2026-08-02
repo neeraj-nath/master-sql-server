@@ -153,3 +153,188 @@ VALUES ('Jason');
 SELECT @@IDENTITY
 SELECT SCOPE_IDENTITY()
 SELECT IDENT_CURRENT('dbo.EmployeeTemp')
+
+--- FOREIGN KEY:
+
+select e.EmployeeNumber, t.*
+from dbo.tblEmployee e
+right join dbo.tblTransaction t
+on e.EmployeeNumber = t.EmployeeNumber
+where t.Amount in (-179.47, 786.22, -967.36, 957.03)
+
+ALTER TABLE tblTransaction
+ADD CONSTRAINT FK_tblTransaction_tblEmployee_EmployeeNumber FOREIGN KEY (EmployeeNumber)
+REFERENCES dbo.tblEmployee(EmployeeNumber) --Error: There are no primary or candidate keys in the referenced table 'dbo.tblEmployee' 
+                                                  --that match the referencing column list in the foreign key 'FK_tblTransaction_tblEmployee_EmployeeNumber'.
+
+ALTER TABLE dbo.tblEmployee 
+ADD CONSTRAINT PK_tblEmployee_EmployeeNumber PRIMARY KEY (EmployeeNumber)
+
+SELECT * FROM dbo.tblEmployee where EmployeeNumber = 132
+
+DELETE TOP(1) FROM dbo.tblEmployee WHERE EmployeeNumber = 132
+
+SELECT * FROM dbo.tblEmployee where EmployeeNumber = 124
+
+-- checking the following queries using transaction
+-- so that we do not need to undo the changes explicitly
+BEGIN TRANSACTION
+
+ALTER TABLE tblTransaction ALTER COLUMN EmployeeNumber INT NULL -- since it is set to not Null on creation of table
+
+ALTER TABLE tblTransaction ADD CONSTRAINT DF_tblTransaction_EmployeeNumber DEFAULT 124 FOR EmployeeNumber
+
+ALTER TABLE tblTransaction WITH NOCHECK
+ADD CONSTRAINT FK_tblTransaction_tblEmployee_EmployeeNumber FOREIGN KEY (EmployeeNumber)
+REFERENCES dbo.tblEmployee(EmployeeNumber)
+
+UPDATE tblEmployee SET EmployeeNumber = 9123 WHERE EmployeeNumber = 123
+
+select e.EmployeeNumber, t.*
+from dbo.tblEmployee e
+right join dbo.tblTransaction t
+on e.EmployeeNumber = t.EmployeeNumber
+where t.Amount in (-179.47, 786.22, -967.36, 957.03)
+
+ROLLBACK TRANSACTION
+
+-- theb above transaction would give us the following error:
+---- The UPDATE statement conflicted with the REFERENCE constraint "FK_tblTransaction_tblEmployee_EmployeeNumber". 
+---- The conflict occurred in database "70-461-LearnSqlServer", table "dbo.tblTransaction", column 'EmployeeNumber'.
+
+------------
+BEGIN TRANSACTION
+
+ALTER TABLE tblTransaction ALTER COLUMN EmployeeNumber INT NULL -- since it is set to not Null on creation of table
+
+ALTER TABLE tblTransaction ADD CONSTRAINT DF_tblTransaction_EmployeeNumber DEFAULT 124 FOR EmployeeNumber
+
+ALTER TABLE tblTransaction WITH NOCHECK
+ADD CONSTRAINT FK_tblTransaction_tblEmployee_EmployeeNumber FOREIGN KEY (EmployeeNumber)
+REFERENCES dbo.tblEmployee(EmployeeNumber)
+ON UPDATE CASCADE -- when changes would be done to the EmployeeNumber in tblEmployee the changes would reflect in the tblTransaction table as well
+
+UPDATE tblEmployee SET EmployeeNumber = 9123 WHERE EmployeeNumber = 123
+
+select e.EmployeeNumber, t.*
+from dbo.tblEmployee e
+right join dbo.tblTransaction t
+on e.EmployeeNumber = t.EmployeeNumber
+where t.Amount in (-179.47, 786.22, -967.36, 957.03)
+
+ROLLBACK TRANSACTION
+
+----------
+BEGIN TRANSACTION
+
+ALTER TABLE tblTransaction ALTER COLUMN EmployeeNumber INT NULL -- since it is set to not Null on creation of table
+
+ALTER TABLE tblTransaction ADD CONSTRAINT DF_tblTransaction_EmployeeNumber DEFAULT 124 FOR EmployeeNumber
+
+ALTER TABLE tblTransaction WITH NOCHECK
+ADD CONSTRAINT FK_tblTransaction_tblEmployee_EmployeeNumber FOREIGN KEY (EmployeeNumber)
+REFERENCES dbo.tblEmployee(EmployeeNumber)
+ON UPDATE SET NULL -- the tableTransaction where we have the Foreign Key - the column will set to NULL
+
+UPDATE tblEmployee SET EmployeeNumber = 9123 WHERE EmployeeNumber = 123
+
+select e.EmployeeNumber, t.*
+from dbo.tblEmployee e
+right join dbo.tblTransaction t
+on e.EmployeeNumber = t.EmployeeNumber
+where t.Amount in (-179.47, 786.22, -967.36, 957.03)
+
+ROLLBACK TRANSACTION
+----------
+
+BEGIN TRANSACTION
+
+ALTER TABLE tblTransaction ALTER COLUMN EmployeeNumber INT NULL -- since it is set to not Null on creation of table
+
+ALTER TABLE tblTransaction ADD CONSTRAINT DF_tblTransaction_EmployeeNumber DEFAULT 124 FOR EmployeeNumber -- default configured here
+
+ALTER TABLE tblTransaction WITH NOCHECK
+ADD CONSTRAINT FK_tblTransaction_tblEmployee_EmployeeNumber FOREIGN KEY (EmployeeNumber)
+REFERENCES dbo.tblEmployee(EmployeeNumber)
+ON UPDATE SET DEFAULT -- the tableTransaction where we have the Foreign Key - the column will set to the DEFAULT value
+
+UPDATE tblEmployee SET EmployeeNumber = 9123 WHERE EmployeeNumber = 123
+
+select e.EmployeeNumber, t.*
+from dbo.tblEmployee e
+right join dbo.tblTransaction t
+on e.EmployeeNumber = t.EmployeeNumber
+where t.Amount in (-179.47, 786.22, -967.36, 957.03)
+
+ROLLBACK TRANSACTION
+---------
+
+BEGIN TRANSACTION
+
+ALTER TABLE tblTransaction ALTER COLUMN EmployeeNumber INT NULL -- since it is set to not Null on creation of table
+
+ALTER TABLE tblTransaction ADD CONSTRAINT DF_tblTransaction_EmployeeNumber DEFAULT 124 FOR EmployeeNumber
+
+ALTER TABLE tblTransaction WITH NOCHECK
+ADD CONSTRAINT FK_tblTransaction_tblEmployee_EmployeeNumber FOREIGN KEY (EmployeeNumber)
+REFERENCES dbo.tblEmployee(EmployeeNumber)
+ON UPDATE CASCADE
+--/ we can write ON DELETE NO ACTION which is anyways the default case when we do not write anything
+
+DELETE tblEmployee WHERE EmployeeNumber = 123
+
+select e.EmployeeNumber, t.*
+from dbo.tblEmployee e
+right join dbo.tblTransaction t
+on e.EmployeeNumber = t.EmployeeNumber
+where t.Amount in (-179.47, 786.22, -967.36, 957.03)
+
+ROLLBACK TRANSACTION
+---------
+
+BEGIN TRANSACTION
+
+ALTER TABLE tblTransaction ALTER COLUMN EmployeeNumber INT NULL 
+
+ALTER TABLE tblTransaction ADD CONSTRAINT DF_tblTransaction_EmployeeNumber DEFAULT 124 FOR EmployeeNumber
+
+ALTER TABLE tblTransaction WITH NOCHECK
+ADD CONSTRAINT FK_tblTransaction_tblEmployee_EmployeeNumber FOREIGN KEY (EmployeeNumber)
+REFERENCES dbo.tblEmployee(EmployeeNumber)
+ON UPDATE CASCADE
+ON DELETE CASCADE
+
+DELETE tblEmployee WHERE EmployeeNumber = 123
+
+select e.EmployeeNumber, t.*
+from dbo.tblEmployee e
+right join dbo.tblTransaction t
+on e.EmployeeNumber = t.EmployeeNumber
+where t.Amount in (-179.47, 786.22, -967.36, 957.03)
+
+ROLLBACK TRANSACTION
+---------
+
+BEGIN TRANSACTION
+
+ALTER TABLE tblTransaction ALTER COLUMN EmployeeNumber INT NULL 
+
+ALTER TABLE tblTransaction ADD CONSTRAINT DF_tblTransaction_EmployeeNumber DEFAULT 124 FOR EmployeeNumber
+
+ALTER TABLE tblTransaction WITH NOCHECK
+ADD CONSTRAINT FK_tblTransaction_tblEmployee_EmployeeNumber FOREIGN KEY (EmployeeNumber)
+REFERENCES dbo.tblEmployee(EmployeeNumber)
+ON UPDATE CASCADE
+--ON DELETE SET NULL
+ON DELETE SET DEFAULT
+
+DELETE tblEmployee WHERE EmployeeNumber = 123
+
+select e.EmployeeNumber, t.*
+from dbo.tblEmployee e
+right join dbo.tblTransaction t
+on e.EmployeeNumber = t.EmployeeNumber
+where t.Amount in (-179.47, 786.22, -967.36, 957.03)
+
+ROLLBACK TRANSACTION
+---------
