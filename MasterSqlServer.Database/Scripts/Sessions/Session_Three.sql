@@ -72,3 +72,84 @@ DROP CONSTRAINT DF_Transaction_CreatedDate
 -- now the above drop column would work without any error
 ALTER TABLE tblTransaction
 DROP COLUMN CreatedDate; 
+
+--- CHECK CONSTRAINT
+ALTER TABLE tblTransaction
+ADD CONSTRAINT CK_Transaction_DateOfTransaction CHECK(DateOfTransaction <= SYSDATETIME())
+
+insert into tblTransaction
+(Amount, DateOfTransaction, EmployeeNumber)
+values(100,'2024-06-10',8989) 
+
+insert into tblTransaction
+(Amount, DateOfTransaction, EmployeeNumber)
+values(100,'2027-06-10',8989) -- this would fail
+-- Error: The INSERT statement conflicted with the CHECK constraint "CK_Transaction_DateOfTransaction". 
+     --The conflict occurred in database "70-461-LearnSqlServer", table "dbo.tblTransaction", column 'DateOfTransaction'.
+
+-- select 'true' where null = null
+CREATE TABLE DtCreation (
+     CreateDt DateTime2 CONSTRAINT CK_DtCreation_CreateDt CHECK (CreateDt <= GETDATE())
+)
+  
+INSERT INTO DtCreation 
+VALUES(SYSDATETIME())
+
+SELECT * FROM DtCreation
+
+INSERT INTO DtCreation 
+VALUES(DATEADD(DAY,2,SYSDATETIME())) --would fail
+
+DROP TABLE DtCreation
+
+-- --
+CREATE TABLE DtCreation (
+     CreateDt DateTime2 CHECK (CreateDt <= GETDATE()) -- sql server would generate a name on its own
+)
+ 
+--- PRIMARY KEY
+
+CREATE TABLE dbo.EmployeeTemp (
+     Id INT PRIMARY KEY IDENTITY(1,1) -- sql server would generate a name on its own --IDENITY cannot be created by ALTER approach
+)
+
+DROP TABLE dbo.EmployeeTemp
+
+CREATE TABLE dbo.EmployeeTemp (
+     Id INT CONSTRAINT PK_EmployeeTemp_Id PRIMARY KEY IDENTITY(1,1) -- sql server would generate a name on its own --IDENITY cannot be created by ALTER approach
+     ,EmployeeName NVARCHAR(100) NOT NULL
+)
+
+INSERT INTO dbo.EmployeeTemp
+VALUES ('Neeraj');
+ 
+SELECT * FROM dbo.EmployeeTemp
+
+INSERT INTO dbo.EmployeeTemp
+VALUES (5,'John'); -- Error: An explicit value for the identity column in table 'dbo.EmployeeTemp' can only be specified when a column list is used and IDENTITY_INSERT is ON.
+
+SET IDENTITY_INSERT dbo.EmployeeTemp ON
+
+INSERT INTO dbo.EmployeeTemp
+VALUES (5,'John'); -- Same error as above
+
+INSERT INTO dbo.EmployeeTemp(Id,EmployeeName)
+VALUES (5,'John'); -- Error: Cannot insert explicit value for identity column in table 'EmployeeTemp' when IDENTITY_INSERT is set to OFF.
+
+SET IDENTITY_INSERT dbo.EmployeeTemp ON -- set on
+
+INSERT INTO dbo.EmployeeTemp(Id,EmployeeName)
+VALUES (5,'John'); -- Works
+
+INSERT INTO dbo.EmployeeTemp
+VALUES ('Jason'); -- Error: Explicit value must be specified for identity column in table 'EmployeeTemp' either when IDENTITY_INSERT is set to ON 
+                              --or when a replication user is inserting into a NOT FOR REPLICATION identity column.
+
+INSERT INTO dbo.EmployeeTemp(EmployeeName)
+VALUES ('Jason');
+
+
+-- to fetch the last identity value used
+SELECT @@IDENTITY
+SELECT SCOPE_IDENTITY()
+SELECT IDENT_CURRENT('dbo.EmployeeTemp')
