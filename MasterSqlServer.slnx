@@ -1,6 +1,14 @@
 <Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Default" />
+    <BuildType Name="Release" />
+  </Configurations>
   <Project Path="MasterSqlServer.Database/MasterSqlServer.Database.sqlproj" Id="32d2bba0-a82f-4fea-9824-02019e2a7707">
-    <Build />
-    <Deploy />
+    <BuildType Solution="Default|*" Project="Release" />
+    <Build Solution="Debug|*" />
+    <Build Solution="Release|*" />
+    <Deploy Solution="Debug|*" />
+    <Deploy Solution="Release|*" />
   </Project>
 </Solution>

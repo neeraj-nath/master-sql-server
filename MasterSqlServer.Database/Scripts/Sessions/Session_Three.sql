@@ -874,3 +874,443 @@ GO
 GO
 
 CREATE UNIQUE CLUSTERED INDEX IX_ViewByDepartmentForEmployees ON dbo.ViewByDepartmentForEmployees(EmployeeNumber, Department, DateOfTransaction)
+
+-----       ======================================= TRIGGERS ==============================================
+
+
+----******** FOR/AFTER Trigger:
+GO
+CREATE TRIGGER [tr_AuditTblEmployee]
+    ON [dbo].[tblEmployee]
+    FOR DELETE, INSERT, UPDATE -- FOR trigger and AFTER trigger are the same.
+    AS
+    BEGIN
+        INSERT INTO dbo.tblEmployee_Audit
+        SELECT * FROM deleted
+        UNION ALL 
+        SELECT * FROM inserted
+    SET NOCOUNT ON
+    END;
+
+
+SELECT * FROM tblEmployee_Audit;
+SELECT * FROM tblEmployee;
+
+INSERT INTO dbo.tblEmployee
+VALUES 
+(2311, 'Neeraj', NULL, 'Nath', 'SL71967NN', '1997-11-23', 'HR')
+-- Added the insert logic for the trigger before the SET NOCOUNT ON 
+-- So the insertion to the audit table also showing in the messages tab.
+-- Need to correct that
+
+GO
+ALTER TRIGGER [tr_AuditTblEmployee]
+    ON [dbo].[tblEmployee]
+    FOR DELETE, INSERT, UPDATE -- FOR trigger and AFTER trigger are the same.
+    AS
+    BEGIN
+    SET NOCOUNT ON
+        INSERT INTO dbo.tblEmployee_Audit
+        SELECT * FROM deleted
+        UNION ALL 
+        SELECT * FROM inserted
+    END;
+GO
+
+INSERT INTO dbo.tblEmployee
+VALUES 
+(2105, 'Dikhyita', NULL, 'Gogoi', 'SL71967DG', '1990-05-21', 'HR')
+
+Update dbo.tblEmployee SET EmployeeMiddleName ='Kumar.' WHERE EmployeeNumber = 2311
+
+
+--- DROPPED THE AUDIT TABLE: What error do we see? or we see no error at all?
+INSERT INTO dbo.tblEmployee
+VALUES 
+(1971 ,'Monisha', NULL, 'Nath', 'SL71967MN', '1971-03-17', 'HR')
+-- Although when we dropped the table we did not see any restriction error or any message highlighting
+-- the dependency of the trigger on the audit table but we do see error now when trying to insert
+-- also the insert of the above record to the tblEmployee also failed.
+-- ERROR: Invalid object name 'dbo.tblEmployee_Audit'.
+
+
+DROP TRIGGER IF EXISTS [dbo].[tr_AuditTblEmployee];
+
+
+GO
+CREATE TRIGGER [tr_AuditTblEmployee]
+    ON [dbo].[tblEmployee]
+    FOR DELETE, INSERT, UPDATE -- FOR trigger and AFTER trigger are the same.
+    AS
+    BEGIN
+        INSERT INTO dbo.tblEmployee_Audit(
+            [EmployeeNumber]
+	        ,[EmployeeFirstName]
+	        ,[EmployeeMiddleName]
+	        ,[EmployeeLastName]
+	        ,[EmployeeGovernmentId]
+	        ,[DateOfBirth]
+	        ,[Department])
+        SELECT 
+        	[EmployeeNumber]
+	        ,[EmployeeFirstName]
+	        ,[EmployeeMiddleName]
+	        ,[EmployeeLastName]
+	        ,[EmployeeGovernmentId]
+	        ,[DateOfBirth]
+	        ,[Department]
+        FROM deleted
+        UNION ALL 
+        SELECT 
+             [EmployeeNumber]
+	        ,[EmployeeFirstName]
+	        ,[EmployeeMiddleName]
+	        ,[EmployeeLastName]
+	        ,[EmployeeGovernmentId]
+	        ,[DateOfBirth]
+	        ,[Department]
+         FROM inserted
+    SET NOCOUNT ON
+    END;
+GO
+
+SELECT * FROM dbo.tblEmployee_Audit
+
+INSERT INTO dbo.tblEmployee
+VALUES 
+(1971 ,'Monisha', NULL, 'Nath', 'SL71967MN', '1971-03-17', 'HR')
+
+GO
+ALTER TRIGGER [tr_AuditTblEmployee]
+    ON [dbo].[tblEmployee]
+    FOR DELETE, INSERT, UPDATE -- FOR trigger and AFTER trigger are the same.
+    AS
+    BEGIN
+    SET NOCOUNT ON
+        INSERT INTO dbo.tblEmployee_Audit(
+            [EmployeeNumber]
+	        ,[EmployeeFirstName]
+	        ,[EmployeeMiddleName]
+	        ,[EmployeeLastName]
+	        ,[EmployeeGovernmentId]
+	        ,[DateOfBirth]
+	        ,[Department])
+        SELECT 
+        	[EmployeeNumber]
+	        ,[EmployeeFirstName]
+	        ,[EmployeeMiddleName]
+	        ,[EmployeeLastName]
+	        ,[EmployeeGovernmentId]
+	        ,[DateOfBirth]
+	        ,[Department]
+        FROM deleted
+        UNION ALL 
+        SELECT 
+             [EmployeeNumber]
+	        ,[EmployeeFirstName]
+	        ,[EmployeeMiddleName]
+	        ,[EmployeeLastName]
+	        ,[EmployeeGovernmentId]
+	        ,[DateOfBirth]
+	        ,[Department]
+         FROM inserted
+    END;
+GO
+
+
+---- **** INSTEAD OF TRIGGER:
+
+-- Check the NOTION notes to understand the reason behind testing the following logic:
+
+BEGIN TRANSACTION
+
+DELETE FROM ViewByDepartmentForEmployees WHERE EmployeeNumber = 132
+
+ROLLBACK TRANSACTION
+-- ERROR : View or function 'ViewByDepartmentForEmployees' is not updatable because the modification affects multiple base tables.
+
+-- THE ABOVE ERROR CAN BE SURPASSED USING THE "INSTEAD OF" TRIGGER
+
+
+CREATE TRIGGER [tr_delete_ViewByDepartmentForEmployees]
+    ON [dbo].[ViewByDepartmentForEmployees]
+    INSTEAD OF DELETE
+    AS
+    BEGIN
+    SET NOCOUNT ON
+        SELECT * FROM deleted
+    END;
+
+-- The following is how actually the trigger would be designed:
+
+ALTER TRIGGER [tr_delete_ViewByDepartmentForEmployees]
+    ON [dbo].[ViewByDepartmentForEmployees]
+    INSTEAD OF DELETE
+    AS
+    BEGIN
+    SET NOCOUNT ON
+        declare @EmployeeNumber as INT
+        declare @DateOfTransaction as DATETIME2
+        declare @Amount as Decimal(18,2)
+
+        select @EmployeeNumber = EmployeeNumber,
+                @DateOfTransaction = DateOfTransaction,
+                @Amount = TotalAmount 
+        FROM deleted
+
+        delete tblTransaction from tblTransaction as t
+        where t.EmployeeNumber = @EmployeeNumber AND
+                t.Amount = @Amount AND
+                t.DateOfTransaction = @DateOfTransaction
+    END;
+
+
+BEGIN TRANSACTION
+select * from tblTransaction where EmployeeNumber = 132
+
+select * from ViewByDepartmentForEmployees WHERE EmployeeNumber = 132
+DELETE FROM ViewByDepartmentForEmployees WHERE EmployeeNumber = 132
+
+select * from tblTransaction where EmployeeNumber = 132
+ROLLBACK TRANSACTION
+
+---- Error in the above trigger: Some testing I am doing for better understanding of the underlying bug:
+GO
+select * INTO #tempTblEmployee from tblTransaction WHERE EmployeeNumber = 132
+
+
+declare @EmployeeNumber as INT
+declare @DateOfTransaction as DATETIME2
+declare @Amount as Decimal(18,2)
+
+select @EmployeeNumber = EmployeeNumber,
+        @DateOfTransaction = DateOfTransaction,
+        @Amount = Amount 
+FROM #tempTblEmployee
+
+select @EmployeeNumber, @DateOfTransaction, @Amount
+
+-- the output here would show what was the error we are facing -- the tutorial video sql query is not correct
+GO
+
+ALTER TRIGGER [tr_delete_ViewByDepartmentForEmployees]
+    ON [dbo].[ViewByDepartmentForEmployees]
+    INSTEAD OF DELETE
+    AS
+    BEGIN
+    SET NOCOUNT ON
+
+        delete t from tblTransaction t
+        join deleted d on
+            t.EmployeeNumber = d.EmployeeNumber
+            AND t.DateOfTransaction = d.DateOfTransaction
+            AND t.Amount = d.TotalAmount
+    END;
+
+BEGIN TRANSACTION
+select * from tblTransaction where EmployeeNumber = 132
+
+select * from ViewByDepartmentForEmployees WHERE EmployeeNumber = 132
+DELETE FROM ViewByDepartmentForEmployees WHERE EmployeeNumber = 132
+
+select * from tblTransaction where EmployeeNumber = 132
+ROLLBACK TRANSACTION
+
+BEGIN TRANSACTION
+select * from tblTransaction where EmployeeNumber = 132
+
+select * from ViewByDepartmentForEmployees WHERE EmployeeNumber = 132 AND DateOfTransaction = '2015-05-15' AND TotalAmount = -2.77
+DELETE FROM ViewByDepartmentForEmployees WHERE EmployeeNumber = 132 AND DateOfTransaction = '2015-05-15' AND TotalAmount = -2.77
+
+select * from tblTransaction where EmployeeNumber = 132
+ROLLBACK TRANSACTION
+
+-------------------- UNDERSTANDING NESTED TRIGGERS AND NESTLEVEL:
+GO
+CREATE TRIGGER [tr_tblTransaction]
+    ON [dbo].[tblTransaction]
+    AFTER INSERT, DELETE, UPDATE
+    AS
+    BEGIN
+    SET NOCOUNT ON
+        SELECT * FROM inserted
+        UNION ALL
+        SELECT * FROM deleted
+    END;
+
+
+BEGIN TRANSACTION
+
+DELETE FROM ViewByDepartmentForEmployees WHERE EmployeeNumber = 132 AND DateOfTransaction = '2015-05-15' AND TotalAmount = -2.77
+
+ROLLBACK TRANSACTION
+--- here first the view table trigger is executed which deletes the data -- then when it reaches the trigger on tblTransaction it shows the data deleted
+---- thus we are seeing nesting of triggers here.
+
+--- ** USING NEST LEVEL:
+GO
+
+ALTER TRIGGER [tr_tblTransaction]
+    ON [dbo].[tblTransaction]
+    AFTER INSERT, DELETE, UPDATE
+    AS
+    BEGIN
+    SET NOCOUNT ON
+        SELECT @@NESTLEVEL AS NEST_LEVEL
+        SELECT * FROM inserted
+        UNION ALL
+        SELECT * FROM deleted
+    END;
+
+
+BEGIN TRANSACTION
+
+DELETE FROM ViewByDepartmentForEmployees WHERE EmployeeNumber = 132 AND DateOfTransaction = '2015-05-15' AND TotalAmount = -2.77
+
+ROLLBACK TRANSACTION
+
+BEGIN TRANSACTION
+
+INSERT INTO dbo.tblTransaction VALUES(123,'2026-08-20',332);
+
+ROLLBACK TRANSACTION
+
+
+--- Using NESTLEVEL as a guard:
+GO
+ALTER TRIGGER [tr_tblTransaction]
+    ON [dbo].[tblTransaction]
+    AFTER INSERT, DELETE, UPDATE
+    AS
+    BEGIN
+    SET NOCOUNT ON
+        IF @@NESTLEVEL = 1
+        BEGIN
+            SELECT * FROM inserted
+            UNION ALL
+            SELECT * FROM deleted
+        END
+        ELSE 
+        BEGIN
+            SELECT @@NESTLEVEL AS NESTLEVEL
+        END
+    END;
+
+BEGIN TRANSACTION
+
+DELETE FROM ViewByDepartmentForEmployees WHERE EmployeeNumber = 132 AND DateOfTransaction = '2015-05-15' AND TotalAmount = -2.77
+
+ROLLBACK TRANSACTION
+
+BEGIN TRANSACTION
+
+INSERT INTO dbo.tblTransaction VALUES(123,'2026-08-20',332);
+
+ROLLBACK TRANSACTION
+
+EXEC sp_configure 'nested triggers';
+
+EXEC sp_configure 'nested triggers',0;
+RECONFIGURE
+GO
+
+EXEC sp_configure 'nested triggers',1;
+RECONFIGURE
+GO
+
+EXEC sp_configure 'nested triggers';
+
+---------------==============================
+
+GO
+ALTER TRIGGER [tr_tblTransaction]
+    ON [dbo].[tblTransaction]
+    AFTER INSERT, DELETE, UPDATE
+    AS
+    BEGIN
+    SET NOCOUNT ON
+        SELECT *, 'Inserted - tblTransaction' FROM inserted
+        UNION ALL
+        SELECT *, 'Deleted - tblTransaction' FROM deleted
+    END;
+
+
+SELECT * FROM ViewByDepartmentForEmployees WHERE EmployeeNumber =  132 AND TotalAmount = -2.77
+
+
+DELETE FROM ViewByDepartmentForEmployees WHERE TotalAmount = -2.77 AND EmployeeNumber = 132
+-- Here if we keep trying to delete for the above combination again and again even when there is no data
+-- we would still see a SELECT statement showing up - even though empty row will show there
+-- we do not see any error.
+-- to prevent this we can use RowCount
+
+
+GO
+ALTER TRIGGER [tr_tblTransaction]
+    ON [dbo].[tblTransaction]
+    AFTER INSERT, DELETE, UPDATE
+    AS
+    BEGIN
+        IF @@ROWCOUNT > 0
+        BEGIN
+            SELECT *, 'Inserted - tblTransaction' FROM inserted
+            UNION ALL
+            SELECT *, 'Deleted - tblTransaction' FROM deleted
+        END
+    END;
+
+
+DELETE FROM ViewByDepartmentForEmployees WHERE TotalAmount = -2.77 AND EmployeeNumber = 132
+
+------=============== TESTING THE UPDATE() FUNCTION:
+ 
+--- UPDATE allows us to check if any particular column has been updated:
+GO
+ALTER TRIGGER [tr_tblTransaction]
+    ON [dbo].[tblTransaction]
+    AFTER UPDATE
+    AS
+    BEGIN
+        IF UPDATE(DateOfTransaction)
+        BEGIN
+            SELECT *, 'Inserted - tblTransaction' FROM inserted
+            UNION ALL
+            SELECT *, 'Deleted - tblTransaction' FROM deleted
+        END
+    END;
+
+SELECT * FROM ViewByDepartmentForEmployees WHERE EmployeeNumber =  132 
+
+UPDATE ViewByDepartmentForEmployees 
+SET DateOfTransaction = SYSUTCDATETIME()
+WHERE EmployeeNumber = 132 AND TotalAmount = 861.16
+-- This would show us the SELECT statement OUTPUT because we have configured the trigger to track
+-- any updates done to DateOfTransaction but this would not track the updates done to any other column
+
+UPDATE ViewByDepartmentForEmployees 
+SET TotalAmount = 870
+WHERE EmployeeNumber = 132 AND TotalAmount = 861.16
+-- this would not show us an SELECT statement output.
+
+GO
+ALTER TRIGGER [tr_tblTransaction]
+    ON [dbo].[tblTransaction]
+    AFTER UPDATE
+    AS
+    BEGIN
+        IF COLUMNS_UPDATED() & 2=2 -- this one tracks the columns by numbers
+        -- if we check the columns for this view in the object explorer we would see
+        -- the EmployeeNumber is the second column
+        -- so this function would track changes done to EmployeeNumber i.e Column No 2
+        ---- ** NOTE: Column tracking happens in binary format.
+        ---- that is starts from 1 --> 2 --> 4 --> 8 and so on.
+        BEGIN
+            SELECT *, 'Inserted - tblTransaction' FROM inserted
+            UNION ALL
+            SELECT *, 'Deleted - tblTransaction' FROM deleted
+        END
+    END;
+
+UPDATE ViewByDepartmentForEmployees 
+SET TotalAmount = 871
+WHERE EmployeeNumber = 132 AND TotalAmount = 871
