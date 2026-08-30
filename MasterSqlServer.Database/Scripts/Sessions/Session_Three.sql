@@ -1,4 +1,4 @@
-select * from tblEmployee
+ select * from tblEmployee
 
 Select t.EmployeeNumber as TransactionEmployeeNumber,
      e.EmployeeNumber as EmployeeNumber,
